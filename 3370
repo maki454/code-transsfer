@@ -1,0 +1,59 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+#define BUFFSIZE 100
+
+int main(int argc, char** argv){
+	char mybuff [BUFFSIZE];
+	//Example 1 open some availbe file and read from it
+	
+	//open the file
+	int fd1 = open("test88.txt", O_RDONLY);
+	printf("MY new open file desc = %d\n", fd1);
+	
+	ssize_t readSize = read(fd1,mybuff,BUFFSIZE);
+	printf("%s\n",mybuff);
+	
+
+	lseek(fd1,-10,SEEK_END);
+	
+	readSize = read(fd1,mybuff,BUFFSIZE);
+	printf("SECOND read size = %zd\n", readSize);
+	printf("%s\n",mybuff);
+	
+	int myret = close(fd1);
+	printf("myret = %d\n",myret);
+
+
+
+	//example 2: Opppen a file for  writing and create it if itts not around
+	int fd2 = open("test898.txt", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	//int fd2 = open("test898.txt", O_WRONLY );
+	
+	if(fd2 == -1){
+		printf("VALUE OF ERROR %d\n",errno);
+		exit(0);
+	}else{
+		printf("MY next open file desc = %d\n",fd2);
+	}
+	
+	//write
+	ssize_t writeSize = write(fd2,"hello cs370!\n",13);
+	printf("SECOND read size = %zd\n", writeSize);
+	
+	myret = close(fd2);
+	
+	//example 3 read it all back rt
+	fd1 = open("test898.txt", O_RDONLY);
+	printf("MY new open file desc = %d\n", fd1);
+	
+	readSize = read(fd1,mybuff,BUFFSIZE);
+	printf("my read size %zd\n",readSize);
+	printf("data %s\n",mybuff);
+	
+	
+}
+	
+
