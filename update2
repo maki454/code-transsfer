@@ -1,0 +1,164 @@
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/stat.h>  //file metadata
+
+typedef struct{
+	char *filename;
+	char *content;
+	mode_t perms;
+	
+	// file timestamps
+	time_t access_time;// time lastused
+	time_t mod_time;// last mod time
+	time_t stat_change_time;// time of last sattus change
+    		
+}fileinfo;
+
+void write_to_arc(int archive_fd, fileinfo f_info, size_t totalBytesRead);
+
+void write_to_arc(int archive_fd, fileinfo f_info, size_t totalBytesRead){
+	//printf("write function hit\n");
+	
+	//get len of file name + 1 for null term
+	size_t filename_len = strlen(f_info.filename) + 1;
+	
+	//archive_fd is where the data is going
+	//buffer &filename_len holds the size of filename, is what gets writtenl
+	//size sizeof(filename_len) how many bytes to write from
+	write(archive_fd, &filename_len, sizeof(filename_len));
+	
+	//writes filename string
+	write(archive_fd, f_info.filename, filename_len);
+	
+	//writes size of content
+    	size_t content_len = totalBytesRead;
+    	write(archive_fd, &content_len, sizeof(content_len));
+    	
+    	//writes the perms
+    	write(archive_fd, &f_info.perms, sizeof(f_info.perms));
+    	
+    	//wrotes access time
+    	write(archive_fd, &f_info.access_time, sizeof(f_info.access_time));
+    	
+    	//writes mod time
+    	write(archive_fd, &f_info.mod_time, sizeof(f_info.mod_time));
+    	
+    	//writes the stat change time
+    	write(archive_fd, &f_info.stat_change_time, sizeof(f_info.stat_change_time));
+	
+	return;
+
+}
+
+int main(int argc, char *argv[]) {
+	//check to make sure there are args
+	if (argc < 3) {
+        	printf("provide args bruh\n");
+        	return 1;
+    	}
+
+   	// Loop through each arg
+    	for (int i = 1; i < argc; i++) {
+        	printf("Argument %d: %s\n", i, argv[i]);
+   	}
+   	
+   	
+   	
+   	
+   	//find the choice(-a,-x or throw error)
+   	if (strcmp(argv[1], "-a") == 0) {
+        // ARCHIVING CASE
+        	//printf("Option -a picked\n");
+        //create the archive file named the second arg
+	int archive_fd = open(argv[2], O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    	
+    	//loop through all the files starts at arg[3]
+    	for (int j = 3; j < argc; j++) {
+    		//printf("working on %s\n",argv[j]);
+		
+        	int input_fd = open(argv[j], O_RDONLY);
+        	if (input_fd == -1) {
+        		printf("failed to open file indexed at: %d\n",j);
+        		perror("Failed to open input file");
+        	}
+        	//create a file struct instance
+        	fileinfo f_info;
+        	//set all the atributes
+        	//start with name
+		f_info.filename = (char *)argv[j];
+		
+		
+		//set content stat_change_time
+		// Buffer to hold data from the input file
+		char buffer[1024];
+		ssize_t bytesRead = 0;
+		ssize_t totalBytesRead = 0;
+		//declare my file_stat struct for getting the metadata
+        	struct stat file_stat;
+        	 // Get file stats and permissions and timestamps
+            	if (stat(argv[j], &file_stat) == -1) {
+                	printf("failed to get file stat\n");
+                	close(input_fd);
+               		exit(1);
+            	}
+		//allocate the memory for the content
+		f_info.content = malloc(file_stat.st_size + 1); //plus 1 for null term
+		//runs while  it is still reading from a file
+		while ((bytesRead = read(input_fd, buffer, sizeof(buffer))) > 0) {
+			//adds content plus totalbytesread to put in correct place
+			//copies from buffer
+			//will cpy bytesread amount of times
+			memcpy(f_info.content + totalBytesRead, buffer, bytesRead);
+			totalBytesRead += bytesRead;  //itterates the amount of bytes
+		}
+		//end file with null term
+		f_info.content[totalBytesRead] = '\0';
+		// done copying the content
+		
+		//copy the rest in using stat struct 
+		f_info.perms = file_stat.st_mode & 0777;  //only store perm bits
+        	f_info.access_time = file_stat.st_atime;
+        	f_info.mod_time = file_stat.st_mtime;
+        	f_info.stat_change_time = file_stat.st_ctime;
+			
+
+
+		
+		//test to see if it works
+		/*
+		printf("File: %s\n", f_info.filename);
+		printf("Content: %s\n", f_info.content);
+		printf("perms: %o\n", f_info.perms);
+		printf("access time: %ld\n", f_info.access_time);
+		printf("mod time: %ld\n", f_info.mod_time);
+		printf("status change time: %ld\n", f_info.stat_change_time);
+        	printf("===========END OF FILE===============\n");
+        	*/
+        	free(f_info.content);
+        	close(input_fd);
+        	
+        	//put struct into archive file
+        	write_to_arc(archive_fd, f_info, totalBytesRead);
+        	
+        }
+
+        	
+        	//close(input_fd);
+		//close(archive_fd);
+   	}else if (strcmp(argv[1], "-x") == 0) {
+        // Handle case for unarchive
+        	printf("Option -x chosen\n");
+        	
+    	} else {
+        // error checking if they picked something wrong
+        	printf("Unknown option, bruh %s\n", argv[1]);
+        	exit(0);
+    	} 
+
+	
+    return 0;
+}
