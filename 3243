@@ -1,0 +1,217 @@
+
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/stat.h>  //file metadata
+#include <utime.h>
+
+typedef struct{
+	char filename[100];
+	char *content;
+	mode_t perms;
+	
+	
+	// file timestamps
+	size_t file_size;
+	time_t access_time;// time lastused
+	time_t mod_time;// last mod time
+    		
+}fileinfo;
+
+
+
+void read_from_arc(FILE *archive_fd){
+
+	printf("read function hit\n");
+	
+	int i = 1;
+	while(1){
+	
+		//create a instance of the struct
+		fileinfo f_info;
+		size_t read = fread(&f_info,1,sizeof(fileinfo),archive_fd);
+		//hits when no more files left
+			
+		if (read != sizeof(fileinfo)) {
+		    if (read == 0) {
+			// Handle end of file properly
+			printf("End of files\n");
+			break;
+		    } else {
+			// Something went wrong with reading fileinfo
+			perror("Error reading fileinfo");
+			exit(1);
+		    }
+		}	
+		
+		//allocat the mem for the content
+		f_info.content = malloc(f_info.file_size);
+		if (f_info.content == NULL) {
+            		perror("Memory allocation failed");
+            		exit(1);
+        	}
+		//write the content in 
+		
+		size_t content_read = fread(f_info.content, 1, f_info.file_size, archive_fd);
+		if (content_read != f_info.file_size) {
+          		perror("Error reading file content");
+            		exit(1);
+        	}
+        
+		
+		
+		printf("Filename: %s\n", f_info.filename);
+    		printf("File Size: %zu bytes\n", f_info.file_size);  
+    		printf("Permissions: %o\n", f_info.perms);          
+    		printf("Access Time: %ld\n", f_info.access_time);   
+    		printf("Modification Time: %ld\n", f_info.mod_time); 
+    		printf("File Content: %s\n", f_info.content);
+		printf("===========================\n");
+		
+		
+		
+		printf("itteration at: %d\n",i);
+		
+		
+		
+		FILE *output_fd = fopen(f_info.filename, "wb");
+		size_t written = fwrite(f_info.content, 1, f_info.file_size, output_fd);
+		struct utimbuf new_times;
+		
+		fclose(output_fd);
+		
+		new_times.actime = f_info.access_time;   // Set access time
+		new_times.modtime = f_info.mod_time;     // Set modification time
+
+		// Use utime() to set the access and modification times
+		int retval = utime(f_info.filename, &new_times);
+		
+		// Set the file permissions (optional, if needed)
+		retval = chmod(f_info.filename, f_info.perms);
+
+		// Close the output file
+		
+		free(f_info.content);
+		}
+	return;
+	
+};
+
+
+
+
+
+
+
+
+
+int main(int argc, char *argv[]) {
+	//check to make sure there are args
+	if (argc < 3) {
+        	printf("provide args bruh\n");
+        	return 1;
+    	}
+
+   	// Loop through each arg
+    	for (int i = 1; i < argc; i++) {
+        	printf("Argument %d: %s\n", i, argv[i]);
+   	}
+   	printf("======================\n");
+   	
+   	
+   	
+   	
+   	//find the choice(-a,-x or throw error)
+   	if (strcmp(argv[1], "-a") == 0) {
+        // ARCHIVING CASEt.txt
+
+        	//printf("Option -a picked\n");
+        //create the archive file named the second arg
+		FILE *archive_fd = fopen(argv[2], "wb");
+
+	    	
+	    	//loop through all the files starts at arg[3]
+	    	for (int j = 3; j < argc; j++) {
+	    		//printf("working on %s\n",argv[j]);
+			
+		
+		FILE *input_fd = fopen(argv[j], "r");
+		
+		if (input_fd == NULL) {
+			printf("failed to open file indexed at: %d\n",j);
+			perror("ERROR");
+		}
+		//create a file struct instance
+		fileinfo f_info;
+		//use stat struct 
+		struct stat filemetastats;
+		int retval = stat(argv[j],&filemetastats);
+		
+		//set the rest of the attributes
+		f_info.file_size = filemetastats.st_size;
+		f_info.perms = filemetastats.st_mode;
+		f_info.access_time = filemetastats.st_atime;
+		f_info.mod_time = filemetastats.st_mtime;
+		
+		
+		
+		
+		//start with name
+		//strncpy(f_info.filename, argv[j],sizeof(argv[j]));
+		strncpy(f_info.filename, argv[j], sizeof(f_info.filename) - 1);
+		f_info.filename[sizeof(f_info.filename) - 1] = '\0';
+		//fill the stuct with the contents
+		//make the memory space
+		f_info.content = malloc(f_info.file_size);
+		if(f_info.content == NULL){
+			printf("MALLOC FAILED\n");
+			fclose(input_fd);
+			 continue;
+		}
+		
+		//reads into my struct.content from input fd
+		size_t reading = fread(f_info.content,1,f_info.file_size,input_fd);
+		//write from struct.content into mtar from archive
+		
+		size_t writesofar = fwrite(&f_info,1,sizeof(f_info),archive_fd);
+		size_t writing = fwrite(f_info.content,1,f_info.file_size,archive_fd);
+		
+		
+		printf("Filename: %s\n", f_info.filename);
+    		printf("File Size: %zu bytes\n", f_info.file_size);  
+    		printf("Permissions: %o\n", f_info.perms);          
+    		printf("Access Time: %ld\n", f_info.access_time);   
+    		printf("Modification Time: %ld\n", f_info.mod_time);
+    		printf("File Content: %s\n", f_info.content); 
+		printf("===========================\n");
+		
+		free(f_info.content);
+		fclose(input_fd);
+		
+		}
+		
+		
+        fclose(archive_fd);
+   	}else if (strcmp(argv[1], "-x") == 0) {
+        // Handle case for unarchive
+        	printf("Option -x chosen\n");
+        	FILE *archive_fd = fopen(argv[2],"rb");
+
+        
+    		//call the function to read from arc
+    		
+        	read_from_arc(archive_fd);
+        	
+        	
+    	} else {
+        // error checking if they picked something wrong
+        	printf("Unknown option, bruh %s\n", argv[1]);
+        	exit(0);
+    	} 
+
+	
+    return 0;
+}
