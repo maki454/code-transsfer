@@ -1,0 +1,47 @@
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <time.h>
+
+void putinfile(char* file,int num){
+	printf("passing args are %s and %d\n",file,num);
+	FILE *opened_file = fopen(argv[1], "w");
+	
+	
+	
+}
+
+int main(int argc, char *argv[]){
+
+	pid_t newpid;
+	newpid = fork();
+	
+	int num = atoi(argv[2]);
+	char* file = argv[1];
+	
+	//check for not enough entries
+	if (argc < 3){
+		printf("bro provide more args\n");
+		//exit(1);
+	}
+	
+	printf("current pid: %d\n",newpid);
+	if(newpid == 0){
+		//printf("hello this is the parent\n");
+	}
+	
+	if(newpid > 0){
+		printf("hello this is the child going to putinfile func\n");
+		printf("current pid: %d\n",newpid);
+		putinfile(file,num);
+
+	}
+	
+	//if its a child process 
+	
+	
+	
+} 
