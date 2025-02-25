@@ -1,0 +1,82 @@
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <time.h>
+
+void putinfile(char* file,int num){
+	printf("passing args are %s and %d\n",file,num);
+	FILE *opened_file = fopen(file, "w");
+	
+	
+	
+	for(int i = 0;i<num;i++){
+		//array of opps
+		char posopps[5] =  {'+','-','*','/', '%'};
+		
+		//find a rand num using nano sec
+		struct timespec ts;
+    		clock_gettime(CLOCK_REALTIME, &ts);
+    		srand((unsigned int)ts.tv_nsec);
+    		
+    		//random opp via rand
+    		int randindex = rand() % 5;
+    		
+    		
+		int randtime1 = rand() % 10;
+		int randtime2 = rand() % 10;
+		//printf("heres my rand eq %d %c %d\n",randtime1,posopps[randindex],randtime2);
+		
+		
+		char line[10];
+
+    		// convert to string and concatenate into line
+    		sprintf(line, "%d %c %d", randtime1, posopps[randindex], randtime2);
+
+		//write the info to file
+		fprintf(opened_file, "%s\n", line);
+		
+	}
+	
+	fclose(opened_file);
+	
+}
+void readfromfile(char* file){
+	printf("file is : %s \n",file);
+}
+
+
+int main(int argc, char *argv[]){
+
+	pid_t newpid;
+	newpid = fork();
+	
+	int num = atoi(argv[2]);
+	char* file = argv[1];
+	
+	//check for not enough entries
+	if (argc < 3){
+		printf("bro provide more args\n");
+		exit(1);
+	}
+	
+	printf("current pid: %d\n",newpid);
+	if(newpid == 0){
+		printf("hello this is the parent\n");
+		readfromfile(file);
+	}
+	
+	if(newpid > 0){
+		printf("hello this is the child going to putinfile func\n");
+		printf("current pid: %d\n",newpid);
+		putinfile(file,num);
+
+	}
+	
+	//if its a child process 
+	
+	
+	
+} 
